@@ -26,28 +26,49 @@ def sdd_info(node, mgr, nvars, names=None):
         "num_vars": nvars,
     }
 
-def sdd_structure(node, max_depth=6):
-    """A nested textual view of the SDD decomposition (primes|subs), for small SDDs."""
-    seen = {}
+def sdd_structure(node, names=None, max_depth=6):
+    """A nested textual view of the SDD decomposition, for small SDDs.
+    """
+    seen = set()
+
+    def lit_str(n):
+        v = abs(n.literal)
+        name = names[v] if names else f"x{v}"
+        return name if n.literal > 0 else "!" + name
+
+    def terminal(n):
+        """Return an inline string if n is terminal/literal, else None."""
+        if n.is_true():    return "T"
+        if n.is_false():   return "F"
+        if n.is_literal(): return lit_str(n)
+        return None
+
     lines = []
-    def walk(n, depth, prefix):
-        if depth > max_depth:
-            lines.append("  " * depth + prefix + "...")
+
+    def walk(n, indent):
+        pad = "    " * indent
+        t = terminal(n)
+        if t is not None:
+            lines.append(pad + t)
             return
-        if n.is_true():
-            lines.append("  " * depth + prefix + "T"); return
-        if n.is_false():
-            lines.append("  " * depth + prefix + "F"); return
-        if n.is_literal():
-            lines.append("  " * depth + prefix + f"lit({n.literal})"); return
         if n.id in seen:
-            lines.append("  " * depth + prefix + f"<shared node {n.id}>"); return
-        seen[n.id] = True
-        lines.append("  " * depth + prefix + f"decision (node {n.id}):")
-        for i, (p, s) in enumerate(n.elements()):
-            walk(p, depth + 1, f"[{i}] prime: ")
-            walk(s, depth + 1, f"    sub:   ")
-    walk(node, 0, "")
+            lines.append(pad + f"<node {n.id}, shown above>")
+            return
+        if indent > max_depth:
+            lines.append(pad + "...")
+            return
+        seen.add(n.id)
+        lines.append(pad + f"node {n.id}  (choose one branch):")
+        for p, s in n.elements():
+            pt, st = terminal(p), terminal(s)
+            # prime is always a literal/terminal in a compressed SDD; show it inline
+            head = pad + f"  if {pt if pt is not None else '(decision)'}  then"
+            if st is not None:
+                lines.append(head + f"  {st}")
+            else:
+                lines.append(head + ":")
+                walk(s, indent + 2)
+    walk(node, 0)
     return "\n".join(lines)
 
 def explain_edit(delta, omega, mgr, nvars, result, names=None):

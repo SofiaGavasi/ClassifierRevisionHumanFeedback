@@ -1,4 +1,5 @@
-"""Load example classifiers from the JSON dataset and rebuild them as SDDs.
+"""
+Load example classifiers from the JSON dataset and rebuild them as SDDs.
 
 Usage:
     from rgr.dataset import load_examples, build_example
@@ -9,8 +10,7 @@ import json, os
 from .sdd_utils import build
 from .compile import decision_tree_to_sdd
 
-_DEFAULT = os.path.join(os.path.dirname(__file__), "..", "..",
-                        "data", "examples", "examples.json")
+_DEFAULT = os.path.join(os.path.dirname(__file__), "..", "..", "data", "examples", "examples.json")
 
 def load_examples(path=None):
     with open(path or _DEFAULT) as fh:
@@ -42,6 +42,9 @@ def _rebuild(ast, mgr, lits):
         return mgr.true() if ast["val"] else mgr.false()
     if op == "tree":
         return decision_tree_to_sdd(ast["tree"], mgr, lits)
+    if op == "hwb":
+        from .compile import hidden_weighted_bit
+        return hidden_weighted_bit(ast["n"], mgr, lits)
     raise ValueError(f"unknown op {op!r}")
 
 def build_example(ex, vtree_type="right"):
