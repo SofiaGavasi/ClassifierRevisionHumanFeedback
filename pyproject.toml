@@ -1,0 +1,18 @@
+[project]
+name = "rgr"
+version = "0.1.0"
+description = "Reason-guided revision of Boolean classifiers on SDDs"
+requires-python = ">=3.10"
+dependencies = ["PySDD>=1.0.5"]
+
+[project.optional-dependencies]
+image = ["numpy", "scikit-learn", "matplotlib"]   # Goal 4
+nl = ["anthropic"]                                # Goal 3 (propose-and-verify)
+dev = ["pytest"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
