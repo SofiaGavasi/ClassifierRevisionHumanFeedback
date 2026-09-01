@@ -6,8 +6,8 @@ requires-python = ">=3.10"
 dependencies = ["PySDD>=1.0.5"]
 
 [project.optional-dependencies]
-image = ["numpy", "scikit-learn", "matplotlib"]   # Goal 4
-nl = ["anthropic"]                                # Goal 3 (propose-and-verify)
+image = ["numpy", "scikit-learn", "matplotlib"]  
+nl = ["anthropic"]                               
 dev = ["pytest"]
 
 [build-system]
