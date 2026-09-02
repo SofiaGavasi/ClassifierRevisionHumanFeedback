@@ -43,7 +43,6 @@ def hidden_weighted_bit(n, mgr, lits):
     """Compile the Hidden Weighted Bit function HWB_n as an SDD.
 
     HWB_n(x_1..x_n) = x_k where k = (number of x_i set to 1); output is False if k=0.
-
     """
     from itertools import product
     f = mgr.false()
@@ -55,4 +54,25 @@ def hidden_weighted_bit(n, mgr, lits):
             for i in range(n):
                 term = term & (lits[i + 1] if bits[i] else ~lits[i + 1])
             f = f | term
+    return f
+
+def q_v(m, mgr, lits):
+    """Compile the database-query lineage Q_V for parameter m as an SDD.
+
+    Variables (1-based indices into `lits`):
+        R_i   for i in 1..m       -> index i
+        T_j   for j in 1..m       -> index m + j
+        S_ij  for i,j in 1..m     -> index 2m + (i-1)*m + j
+    total m*m + 2m variables.
+
+        Q_V = OR over i,j of ( (R_i & S_ij) | (S_ij & T_j) | (R_i & T_j) )
+
+    """
+    def R(i): return lits[i]
+    def T(j): return lits[m + j]
+    def S(i, j): return lits[2 * m + (i - 1) * m + j]
+    f = mgr.false()
+    for i in range(1, m + 1):
+        for j in range(1, m + 1):
+            f = f | (R(i) & S(i, j)) | (S(i, j) & T(j)) | (R(i) & T(j))
     return f

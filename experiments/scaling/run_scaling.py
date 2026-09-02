@@ -20,7 +20,7 @@ os.makedirs(OUT, exist_ok=True)
 
 PIPE_REPS = 500      # average the pipeline over repeats (single runs hit the timer floor)
 ENUM_REPS = 20       # also repeat enumeration; fast cases otherwise round to 0 on Windows
-ENUM_CAP_VARS = 14   # skip enumeration above this many variables
+ENUM_CAP_VARS = 12   # skip enumeration above this many variables
 clock = time.perf_counter   # high-resolution timer (works well on Windows)
 
 def _avg_time(fn, reps):
@@ -79,6 +79,42 @@ def main():
         fh.write(table + "\n")
     print(table)
     print(f"\nwrote {csv_path}\nwrote {txt_path}")
+
+    # ---- second experiment: SDD size across vtrees for the pipeline-worst-case families ----
+    # These families (HWB, Q_V) are about the SIZE of the compiled representation, not
+    # about reason enumeration. Timing them against enumeration is not the point; showing
+    # how |SDD| varies with vtree is. Q_V in particular is proven exponential for EVERY
+    # vtree asymptotically, though only its bad-vtree blow-up is visible at small sizes.
+    VTREES = ["right", "left", "balanced"]
+    vt_rows = []
+    for ex in load_examples():
+        if not ex["family"].startswith("worst_case_pipeline"):
+            continue
+        sizes = {}
+        for vt in VTREES:
+            mgr, sdd, exb = build_example(ex, vtree_type=vt)
+            sizes[vt] = sdd.size()
+        vt_rows.append({"id": ex["id"], "nvars": ex["nvars"], **sizes,
+                        "max_min_ratio": f"{max(sizes.values())/min(sizes.values()):.1f}x"})
+
+    if vt_rows:
+        vt_csv = os.path.join(OUT, "vtree_size_results.csv")
+        with open(vt_csv, "w", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=list(vt_rows[0].keys()))
+            w.writeheader(); w.writerows(vt_rows)
+
+        vt_txt = os.path.join(OUT, "vtree_size_table.txt")
+        vh = f"{'id':10s} {'nv':>3} " + " ".join(f"{vt:>8s}" for vt in VTREES) + f" {'max/min':>8s}"
+        vlines = ["SDD size across vtrees (pipeline worst-case families)", vh, "-" * len(vh)]
+        for r in vt_rows:
+            vlines.append(f"{r['id']:10s} {r['nvars']:>3} "
+                          + " ".join(f"{r[vt]:>8d}" for vt in VTREES)
+                          + f" {r['max_min_ratio']:>8s}")
+        vtable = "\n".join(vlines)
+        with open(vt_txt, "w") as fh:
+            fh.write(vtable + "\n")
+        print("\n" + vtable)
+        print(f"\nwrote {vt_csv}\nwrote {vt_txt}")
 
 if __name__ == "__main__":
     main()

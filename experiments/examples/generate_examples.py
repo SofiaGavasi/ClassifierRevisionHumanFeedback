@@ -74,6 +74,18 @@ for n in [4,6,8,10,12]:
         f"Hidden Weighted Bit HWB_{n}: output is x_k where k = number of 1s in the input.",
         "The pipeline's worst case: HWB has NO small SDD (size grows exponentially in n")
 
+# ----  Worst case for the PIPELINE, proven for ALL vtrees: Q_V ----
+# Q_V has m*m + 2m variables; kept to small m so it stays loadable.
+for m in [2, 3, 4]:
+    nv = m * m + 2 * m
+    # a rejected instance: all variables false (no pair has two bits set)
+    rej = {v: False for v in range(1, nv + 1)}
+    add(f"q_v_{m}", "worst_case_pipeline_allvtrees", nv, {"op": "q_v", "m": m},
+        [rej],
+        f"Q_V database-query lineage, m={m} ({nv} variables).",
+        "The cleanest PROVEN worst case for the pipeline. Every SDD for Q_V has size "
+        "at least 2^(sqrt(m/3)-1) under EVERY vtree")
+
 # ---- Decision trees (structured input, linear-size SDD) ----
 def balanced_tree(depth, start=1):
     # a full binary decision tree of given depth; leaves alternate accept/reject

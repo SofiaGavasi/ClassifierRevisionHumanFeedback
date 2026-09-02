@@ -45,6 +45,9 @@ def _rebuild(ast, mgr, lits):
     if op == "hwb":
         from .compile import hidden_weighted_bit
         return hidden_weighted_bit(ast["n"], mgr, lits)
+    if op == "q_v":
+            from .compile import q_v
+            return q_v(ast["m"], mgr, lits)
     raise ValueError(f"unknown op {op!r}")
 
 def build_example(ex, vtree_type="right"):
