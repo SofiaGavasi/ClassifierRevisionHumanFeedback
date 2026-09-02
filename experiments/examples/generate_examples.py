@@ -14,6 +14,8 @@ Formula AST node types (rebuilt by the loader):
   {"op":"and","xs":[...]}  {"op":"or","xs":[...]}
   {"op":"tree","tree":<nested-dict decision tree>}
   {"op":"const","val":true/false}
+
+Run:  python experiments/examples/generate_examples.py
 """
 import json, os, random
 
@@ -59,14 +61,14 @@ def parity(n):
     for i in range(2,n+1):
         expr = xor(expr, V(i))
     return expr
-for n in [3,4,5]:
+for n in [4,6,8,10,12]:
     add(f"parity_{n}", "worst_case_naive", n, parity(n),
         [{v: False for v in range(1,n+1)}],
         f"Parity (XOR) of {n} variables.",
         "Small SDD but 2^(n-1) prime implicants: the naive reason-enumeration blows up, the pipeline does not.")
 
 # ---- Worst case for the PIPELINE: Hidden Weighted Bit (no small SDD) ----
-for n in [4,5,6]:
+for n in [4,6,8,10,12]:
     add(f"hwb_{n}", "worst_case_pipeline", n, {"op":"hwb","n":n},
         [{v: False for v in range(1,n+1)}, {v: (v==1) for v in range(1,n+1)}],
         f"Hidden Weighted Bit HWB_{n}: output is x_k where k = number of 1s in the input.",
@@ -118,7 +120,7 @@ def random_cnf(nvars, nclauses, seed):
             lits.append(V(v) if r.random()<0.5 else NOT(V(v)))
         clauses.append(OR(*lits) if len(lits)>1 else lits[0])
     return AND(*clauses), witness
-for i,(nv,nc) in enumerate([(4,3),(6,4),(8,5),(10,6)]):
+for i,(nv,nc) in enumerate([(4,3),(6,4),(8,5),(10,6),(12,7)],):
     f,wit = random_cnf(nv,nc, 100+i)
     # a rejected instance: flip the witness fully
     rej = {v: not wit[v] for v in range(1,nv+1)}

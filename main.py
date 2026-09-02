@@ -24,7 +24,7 @@ For per-example tasks they run on the random suite; for "scaling", "vtree_check"
 #____________________________________________________________________________________________________
 # CONFIGURATION: change only the TASK line below, then run  python main.py
 
-TASK = "tests"          # <--- CHANGE THIS LINE with one of the TASK options above
+TASK = "enum_vs_pipeline:parity_5"          # <--- CHANGE THIS LINE with one of the TASK options above
 
 
 # --- random-example configuration (change this configuration to run the task on random examples) ---
@@ -143,16 +143,30 @@ def task_alternatives(id):
         print(f"\n  SUMMARY: {cases} edits, {total_alts} alternatives total, "
               f"avg {total_alts/cases:.2f} per edit")
 
-def _time_pipeline(sdd, omega, mgr, nv, reps=200):
-    t0 = time.time()
+_clock = time.perf_counter   # high-resolution timer (avoids Windows time() rounding to 0)
+
+def _avg_time(fn, reps):
+    t0 = _clock()
     for _ in range(reps):
-        edit(sdd, omega, mgr, nv)
-    return (time.time() - t0) / reps
+        fn()
+    return (_clock() - t0) / reps
+
+def _time_pipeline(sdd, omega, mgr, nv, reps=500):
+    return _avg_time(lambda: edit(sdd, omega, mgr, nv), reps)
+
+def _time_enumeration(sdd, nv, mgr):
+    """Averaged enumeration time (seconds) and reason count; None if too large."""
+    if nv > 14:
+        return None, None
+    npi = len(all_prime_implicants(sdd, nv, mgr))
+    reps = 20 if nv <= 8 else 3
+    t = _avg_time(lambda: all_prime_implicants(sdd, nv, mgr), reps)
+    return t, npi
 
 def task_enum_vs_pipeline(id):
     exs = _suite() if USE_RANDOM else [get_example(id)]
-    print(f"{'id':14s} {'nv':>3} {'|SDD|':>6} {'#reasons':>9} {'enum(s)':>10} {'pipe(s)':>11} {'speedup':>8}")
-    print("-" * 62)
+    print(f"{'id':14s} {'nv':>3} {'|SDD|':>6} {'#reasons':>9} {'enum(us)':>11} {'pipe(us)':>11} {'speedup':>8}")
+    print("-" * 66)
     enum_times, pipe_times, speedups = [], [], []
     for ex in exs:
         mgr, sdd, ex = build_example(ex)
@@ -162,20 +176,20 @@ def task_enum_vs_pipeline(id):
             continue
         omega = insts[0]
         t_pipe = _time_pipeline(sdd, omega, mgr, nv)
-        if nv <= 12:
-            t0 = time.time(); pis = all_prime_implicants(sdd, nv, mgr); t_enum = time.time() - t0
+        t_enum, npi = _time_enumeration(sdd, nv, mgr)
+        if t_enum is not None:
             sp = t_enum / t_pipe if t_pipe else 0
             enum_times.append(t_enum); pipe_times.append(t_pipe); speedups.append(sp)
-            print(f"{ex['id']:14s} {nv:>3} {sdd.size():>6} {len(pis):>9} "
-                  f"{t_enum:>10.5f} {t_pipe:>11.6f} {sp:>7.0f}x")
+            print(f"{ex['id']:14s} {nv:>3} {sdd.size():>6} {npi:>9} "
+                  f"{t_enum*1e6:>11.1f} {t_pipe*1e6:>11.1f} {sp:>7.0f}x")
         else:
-            print(f"{ex['id']:14s} {nv:>3} {sdd.size():>6} {'?':>9} {'skipped':>10} {t_pipe:>11.6f} {'-':>8}")
+            print(f"{ex['id']:14s} {nv:>3} {sdd.size():>6} {'?':>9} {'skipped':>11} {t_pipe*1e6:>11.1f} {'-':>8}")
     if USE_RANDOM and speedups:
         import statistics
-        print("-" * 62)
+        print("-" * 66)
         print(f"AVERAGES over {len(speedups)} examples: "
-              f"enum={statistics.mean(enum_times):.5f}s  "
-              f"pipe={statistics.mean(pipe_times):.6f}s  "
+              f"enum={statistics.mean(enum_times)*1e6:.1f}us  "
+              f"pipe={statistics.mean(pipe_times)*1e6:.1f}us  "
               f"speedup={statistics.mean(speedups):.0f}x")
 
 def task_tree_demo():
@@ -196,11 +210,12 @@ def task_tree_demo():
     print(f"    accepted after edit: {is_implicant(omega, res['edited'], mgr)}")
 
 def task_scaling():
+    """Time pipeline vs enumeration; averages when USE_RANDOM."""
     exs = _suite() if USE_RANDOM else [e for e in load_examples()
               if e["family"] in ("worst_case_naive", "worst_case_pipeline", "random")]
     print(f"{'id':14s} {'family':20s} {'nv':>3} {'|SDD|':>6} {'#PIs':>6} "
-          f"{'enum(s)':>10} {'pipe(s)':>11} {'speedup':>8}")
-    print("-" * 74)
+          f"{'enum(us)':>11} {'pipe(us)':>11} {'speedup':>8}")
+    print("-" * 76)
     enum_t, pipe_t, sizes = [], [], []
     for ex in exs:
         mgr, sdd, ex = build_example(ex)
@@ -209,22 +224,22 @@ def task_scaling():
         omega = insts[0]
         t_pipe = _time_pipeline(sdd, omega, mgr, nv)
         pipe_t.append(t_pipe); sizes.append(sdd.size())
-        if nv <= 12:
-            t0 = time.time(); pis = all_prime_implicants(sdd, nv, mgr); t_enum = time.time() - t0
+        t_enum, npi = _time_enumeration(sdd, nv, mgr)
+        if t_enum is not None:
             enum_t.append(t_enum)
             sp = f"{t_enum/t_pipe:.0f}x" if t_pipe else "n/a"
-            print(f"{ex['id']:14s} {ex['family']:20s} {nv:>3} {sdd.size():>6} {len(pis):>6} "
-                  f"{t_enum:>10.5f} {t_pipe:>11.6f} {sp:>8}")
+            print(f"{ex['id']:14s} {ex['family']:20s} {nv:>3} {sdd.size():>6} {npi:>6} "
+                  f"{t_enum*1e6:>11.1f} {t_pipe*1e6:>11.1f} {sp:>8}")
         else:
             print(f"{ex['id']:14s} {ex['family']:20s} {nv:>3} {sdd.size():>6} {'?':>6} "
-                  f"{'skipped':>10} {t_pipe:>11.6f} {'-':>8}")
+                  f"{'skipped':>11} {t_pipe*1e6:>11.1f} {'-':>8}")
     if USE_RANDOM and pipe_t:
         import statistics
-        print("-" * 74)
+        print("-" * 76)
         line = (f"AVERAGES over {len(pipe_t)} examples: |SDD|={statistics.mean(sizes):.1f}  "
-                f"pipe={statistics.mean(pipe_t):.6f}s")
+                f"pipe={statistics.mean(pipe_t)*1e6:.1f}us")
         if enum_t:
-            line += f"  enum={statistics.mean(enum_t):.5f}s"
+            line += f"  enum={statistics.mean(enum_t)*1e6:.1f}us"
         print(line)
 
 
