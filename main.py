@@ -82,6 +82,10 @@ def _run_example(ex):
         print("    " + explain_edit(sdd, inst, mgr, nv, res).replace("\n", "\n    "))
 
 
+
+
+
+
 # _______________ tasks __________________________
 def task_list():
     print(f"{'id':22s} {'family':20s} {'nvars':>5}")
