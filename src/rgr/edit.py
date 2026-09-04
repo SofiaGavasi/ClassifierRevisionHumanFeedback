@@ -3,8 +3,7 @@
 edit(delta, omega, mgr, nvars, weights=None) ->
     dict with keys: 'edited', 'reason', 'weakened', 'distance', 'alternatives'
 
-Pipeline: nearest instance (R1+R2) -> greedy shrink (reason) ->
-weaken by dropping disagreeing literals -> disjoin into delta (R-simplification).
+Pipeline: nearest instance  -> greedy shrink (reason) -> weaken by dropping disagreeing literals -> disjoin into delta (R-simplification).
 """
 from .reconstruct import nearest_model
 from .shrink import greedy_shrink

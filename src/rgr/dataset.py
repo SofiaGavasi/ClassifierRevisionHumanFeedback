@@ -22,7 +22,7 @@ def get_example(id, path=None):
             return e
     raise KeyError(f"no example with id {id!r}")
 
-def _rebuild(ast, mgr, lits):
+def _rebuild(ast, mgr, lits): # takes a formula dictionary (the AST) and recursively turns it into an SDD
     op = ast["op"]
     if op == "var":
         return lits[ast["v"]]
@@ -49,6 +49,7 @@ def _rebuild(ast, mgr, lits):
             from .compile import q_v
             return q_v(ast["m"], mgr, lits)
     raise ValueError(f"unknown op {op!r}")
+
 
 def build_example(ex, vtree_type="right"):
     """Rebuild an example dict into (mgr, sdd, ex). Test instances are in ex['test_instances']

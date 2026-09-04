@@ -4,14 +4,17 @@ Core pipeline:
     from rgr.edit import edit
 
 Files:
+    rgr.edit          - top-level edit(delta, omega, mgr, nvars, weights=None) pipeline
     rgr.distance      - bottom-up nearest-instance distance (weighted-capable)
     rgr.reconstruct   - nearest instance via backpointers
     rgr.shrink        - greedy shrink
     rgr.alternatives  - bounded menu of alternatives
     rgr.reasons       - prime-implicant enumeration (ground truth), weakening helpers
-    rgr.compile       - decision tree -> SDD
-    rgr.compare       - set-min vs cardinality 
+    rgr.compile       - decision tree -> SDD (and HWB, Q_V builders)
+    rgr.compare       - set-min (all-minimal) vs cardinality (single-reason) readings of Definition 6
     rgr.display       - human-readable term/instance/SDD display
+    rgr.dataset       - load the JSON example set and rebuild examples into SDDs
+    rgr.generate      - seeded random example generation (CNF and decision trees)
     rgr.sdd_utils     - SDD construction and small wrappers
 """
 from .edit import edit

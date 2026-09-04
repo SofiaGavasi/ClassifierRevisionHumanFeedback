@@ -3,7 +3,7 @@ from .distance import node_dist
 from .sdd_utils import term_to_sdd
 
 def fmt_term(term, names=None):
-    """A term {var:bool} -> 'a & !b & c'."""
+    """Turns a term dictionary like {1: True, 2: False, 3: True} into a string like "a & !b & c" """
     if not term:
         return "T"
     def nm(v):
@@ -11,7 +11,7 @@ def fmt_term(term, names=None):
     return " & ".join(nm(v) if val else "!" + nm(v) for v, val in sorted(term.items()))
 
 def fmt_instance(omega, names=None):
-    """An instance -> 'a=1 b=0 c=0'."""
+    """An instance -> 'a=1 b=0 c=0' """
     def nm(v):
         return names[v] if names else f"x{v}"
     return " ".join(f"{nm(v)}={int(val)}" for v, val in sorted(omega.items()))
@@ -29,9 +29,9 @@ def sdd_info(node, mgr, nvars, names=None):
 def sdd_structure(node, names=None, max_depth=6):
     """A nested textual view of the SDD decomposition, for small SDDs.
     """
-    seen = set()
+    seen = set() # tracks nodes already printed, so shared nodes (reached from multiple parents) aren't expanded twice
 
-    def lit_str(n):
+    def lit_str(n): # formats a literal node (a or !a), using names if given
         v = abs(n.literal)
         name = names[v] if names else f"x{v}"
         return name if n.literal > 0 else "!" + name
@@ -45,7 +45,7 @@ def sdd_structure(node, names=None, max_depth=6):
 
     lines = []
 
-    def walk(n, indent):
+    def walk(n, indent): # recursively walk the SDD, printing each node and its children, with indentation
         pad = "    " * indent
         t = terminal(n)
         if t is not None:

@@ -24,7 +24,7 @@ For per-example tasks they run on the random suite; for "scaling", "vtree_check"
 #____________________________________________________________________________________________________
 # CONFIGURATION: change only the TASK line below, then run  python main.py
 
-TASK = "enum_vs_pipeline:parity_5"          # <--- CHANGE THIS LINE with one of the TASK options above
+TASK = "tree_demo"          # <--- CHANGE THIS LINE with one of the TASK options above
 
 
 # --- random-example configuration (change this configuration to run the task on random examples) ---
