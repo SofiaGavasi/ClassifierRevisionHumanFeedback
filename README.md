@@ -141,8 +141,6 @@ Separates what the vtree does and doesn't affect.
 
 ## Experiments Module
 
-## Experiments module
-
 The `experiments/` folder holds standalone scripts that *produce results and files*, as opposed to the engine (`rgr/`), which holds the reusable logic, and the tests (`tests/`), which only check correctness. Each experiment lives in its own subfolder. A seperate README file is in the experiments module to describe the various subfolders
 
 

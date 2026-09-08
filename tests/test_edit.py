@@ -8,8 +8,8 @@ def test_ab_or_c_edit_covers_omega():
     omega = {1: False, 2: False, 3: False}   # rejected
     res = edit(delta, omega, mgr, 3)
     assert res["distance"] == 1
-    assert is_implicant(omega, res["edited"], mgr)          # now accepted
-    assert (delta & ~res["edited"]).is_false()              # nothing lost
+    assert is_implicant(omega, res["edited"], mgr)  # now accepted
+    assert (delta & ~res["edited"]).is_false()    # nothing lost
 
 def test_wine_reason():
     mgr, (m, r, f, w) = build(4)

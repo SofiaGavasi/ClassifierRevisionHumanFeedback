@@ -29,15 +29,44 @@ def decision_tree_to_sdd(tree, mgr, lits):
 
     return (x & hi) | (~x & lo) #"either (the feature is true AND whatever the true-branch decides) OR (the feature is false AND whatever the false-branch decides)"
 
-
-def compile_tree(tree, nvars, vtree_type="right"):
-    """Convenience: build a manager and compile the tree. Returns (mgr, sdd)."""
-    # decision_tree_to_sdd needs a manager and a dictionary of literals already set up. This function does that setup
-    mgr, lit_list = build(nvars, vtree_type=vtree_type)
-    lits = {i + 1: lit_list[i] for i in range(nvars)}
+ 
+def tree_var_order(tree):
+    """Variable order induced by the tree's own structure: features in the order
+    they are first tested in a root-first (pre-order) traversal."""
+    order, seen = [], set()
+    def walk(t):
+        if t is True or t is False:
+            return
+        f = t["feature"]
+        if f not in seen:
+            seen.add(f)
+            order.append(f)
+        walk(t["true"])
+        walk(t["false"])
+    walk(tree)
+    return order
+ 
+def compile_tree(tree, nvars, vtree_type=None, var_order=None):
+    """Convenience: build a manager and compile the tree. Returns (mgr, sdd).
+ 
+    By default (vtree_type=None) the tree-INDUCED variable order is used with a
+    right-linear vtree, which realises the linear-size compilation guarantee.
+    Pass vtree_type explicitly (e.g. "right", "balanced") to override with a
+    generic vtree over the natural order 1..nvars, or pass var_order directly."""
+    if var_order is None and vtree_type is None:
+        var_order = tree_var_order(tree)
+        # append any features not tested in the tree so var_order is a full permutation
+        for v in range(1, nvars + 1):
+            if v not in var_order:
+                var_order.append(v)
+        vtree_type = "right"
+    elif vtree_type is None:
+        vtree_type = "right"
+    mgr, lit_list = build(nvars, var_order=var_order, vtree_type=vtree_type)
+    # build() returns literals indexed by position; map var index -> its literal
+    lits = {i + 1: mgr.literal(i + 1) for i in range(nvars)}
     return mgr, decision_tree_to_sdd(tree, mgr, lits)
-
-
+ 
 def tree_predict(tree, assignment):
     """Evaluate the tree directly (ground truth for the compilation)."""
     #base case leaf
@@ -49,7 +78,7 @@ def tree_predict(tree, assignment):
     branch = "true" if assignment[tree["feature"]] else "false" # goes either down the "true" or "false" branch depending on whether the feature is set to True or False in the assignment
 
     return tree_predict(tree[branch], assignment) # recurses until it hits an accept/reject leaf
-
+ 
 
 def hidden_weighted_bit(n, mgr, lits):
     """Compile the Hidden Weighted Bit function HWB_n as an SDD."""

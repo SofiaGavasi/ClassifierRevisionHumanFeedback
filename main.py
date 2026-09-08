@@ -24,13 +24,13 @@ For per-example tasks they run on the random suite; for "scaling", "vtree_check"
 #____________________________________________________________________________________________________
 # CONFIGURATION: change only the TASK line below, then run  python main.py
 
-TASK = "tree_demo"          # <--- CHANGE THIS LINE with one of the TASK options above
+TASK = "compare:def6_divergence"        
 
 
-# --- random-example configuration (change this configuration to run the task on random examples) ---
+#    random-example configuration (change this configuration to run the task on random examples)
 USE_RANDOM    = False       # True -> tasks run on seeded random examples
 RANDOM_KIND   = "random"    # "random" (CNF) or "tree"
-RANDOM_N      = 10          # how many random examples in the suite
+RANDOM_N      = 2          # how many random examples in the suite
 RANDOM_SEED   = 100          # seed for reproducibility
 RANDOM_NVARS  = None        # None = generator chooses; or fix an int
 VTREE_TYPES   = ["right", "left", "balanced"]   # used by vtree_check / vtree_compare
