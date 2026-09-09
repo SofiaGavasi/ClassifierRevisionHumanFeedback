@@ -8,7 +8,7 @@ dependencies = ["PySDD>=1.0.5"]
 [project.optional-dependencies]
 image = ["numpy", "scikit-learn", "matplotlib"]  
 nl = ["anthropic"]                               
-dev = ["pytest"]
+dev = ["pytest", "matplotlib"]
 
 [build-system]
 requires = ["setuptools>=61"]

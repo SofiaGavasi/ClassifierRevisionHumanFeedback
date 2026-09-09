@@ -8,5 +8,6 @@ data/*
 !data/fixtures/**
 
 experiments/**/outputs/
+experiments/**/outputs_old/
 *.png
 !docs/**/*.png
