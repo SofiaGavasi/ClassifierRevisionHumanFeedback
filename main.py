@@ -14,6 +14,7 @@ TASK options:
     "scaling"              time pipeline vs enumeration across the worst-case families
     "vtree_compare:<id>"   compare SDD size across vtree types (size varies, result must not)
     "tests"                run the pytest suite
+    "enum_from_model:<id>"    time the CEGAR-based ReasonsFromModel vs the full-PI baseline on one example
     "custom"               run the editable CUSTOM block at the bottom
 
 if you don't want to run these commands on a fixed example, you can generate one or multiple seeded random examples.
@@ -24,11 +25,11 @@ For per-example tasks they run on the random suite; for "scaling", "vtree_check"
 #____________________________________________________________________________________________________
 # CONFIGURATION: change only the TASK line below, then run  python main.py
 
-TASK = "compare:def6_divergence"        
+TASK = "enum_from_model:"        
 
 
 #    random-example configuration (change this configuration to run the task on random examples)
-USE_RANDOM    = False       # True -> tasks run on seeded random examples
+USE_RANDOM    = True       # True -> tasks run on seeded random examples
 RANDOM_KIND   = "random"    # "random" (CNF) or "tree"
 RANDOM_N      = 2          # how many random examples in the suite
 RANDOM_SEED   = 100          # seed for reproducibility
@@ -47,6 +48,8 @@ from rgr.reasons import all_prime_implicants
 from rgr.compile import compile_tree, tree_predict
 from rgr.sdd_utils import term_to_sdd, is_implicant
 from rgr.display import fmt_term, fmt_instance, sdd_info, sdd_structure, explain_edit
+from rgr.reasons_from_model import reasons_from_model_full
+from rgr.enumeration import ResidualCache
 import time
 
 
@@ -196,6 +199,77 @@ def task_enum_vs_pipeline(id):
               f"pipe={statistics.mean(pipe_times)*1e6:.1f}us  "
               f"speedup={statistics.mean(speedups):.0f}x")
 
+def task_enum_from_model(id):
+    """
+    Time the CEGAR-based ReasonsFromModel against the full-PI baseline.
+
+    Usage: TASK = "enum_from_model:wine"    (or any example id)
+           TASK = "enum_from_model"          + USE_RANDOM=True for the suite.
+    """
+    exs = _suite() if USE_RANDOM else [get_example(id)]
+    cache = ResidualCache()  # cross-μ caching enabled by default here
+
+    print(f"{'id':14s} {'nv':>3} {'|SDD|':>6} {'d*':>3} {'|Dμ|':>5} "
+          f"{'r_μ':>4} {'core':>4} {'#PIs':>5} "
+          f"{'pipe(us)':>10} {'base(us)':>10} {'speedup':>8}")
+    print("-" * 84)
+
+    pipe_ts, base_ts, speedups = [], [], []
+    for ex in exs:
+        mgr, sdd, ex = build_example(ex)
+        nv = ex["nvars"]
+        insts = list(_rejected_instances(sdd, mgr, ex))
+        if not insts:
+            continue
+        omega = insts[0]
+
+        # nearest model at gap 0
+        from rgr.alternatives import alternatives
+        d, alts = alternatives(sdd, omega, nv)
+        near = [a for a in alts if a.get("gap", 0) == 0]
+        if not near:
+            continue
+        mu = near[0]["instance"]
+
+        t0 = _clock()
+        pis, stats = reasons_from_model_full(sdd, mu, omega, mgr, nv,
+                                             cache=cache)
+        t_pipe = _clock() - t0
+
+        # baseline: full PI enumeration + filter to μ
+        t0 = _clock()
+        mu_lits = frozenset(v if val else -v for v, val in mu.items())
+        _ = [p for p in all_prime_implicants(sdd, nv, mgr)
+             if _pi_lits(p) <= mu_lits]
+        t_base = _clock() - t0
+
+        sp = t_base / t_pipe if t_pipe else 0.0
+        pipe_ts.append(t_pipe); base_ts.append(t_base); speedups.append(sp)
+        print(f"{ex['id']:14s} {nv:>3} {sdd.size():>6} {stats.d_star:>3} "
+              f"{stats.residual_sdd_size:>5} {stats.r_mu:>4} "
+              f"{stats.core_size:>4} {stats.pis_found:>5} "
+              f"{t_pipe*1e6:>10.1f} {t_base*1e6:>10.1f} {sp:>7.1f}x")
+
+    if USE_RANDOM and speedups:
+        import statistics
+        print("-" * 84)
+        print(f"AVERAGES over {len(speedups)} examples: "
+              f"pipe={statistics.mean(pipe_ts)*1e6:.1f}us "
+              f"base={statistics.mean(base_ts)*1e6:.1f}us "
+              f"speedup={statistics.mean(speedups):.1f}x  "
+              f"cache={cache.stats()}")
+
+
+def _pi_lits(pi):
+    """Normalise a PI from rgr.reasons to a frozenset of signed ints."""
+    if isinstance(pi, frozenset):
+        return pi
+    if isinstance(pi, set):
+        return frozenset(pi)
+    if isinstance(pi, dict):
+        return frozenset(v if val else -v for v, val in pi.items())
+    raise TypeError(type(pi).__name__)
+
 def task_tree_demo():
     if USE_RANDOM and RANDOM_KIND == "tree":
         task_run_all(); return
@@ -295,6 +369,9 @@ def main():
     elif t == "scaling":                  task_scaling()
     elif t.startswith("vtree_compare:"):  task_vtree_compare(t.split(":", 1)[1])
     elif t == "tests":                    task_tests()
+    elif t.startswith("enum_from_model"): 
+        suffix = t.split(":", 1)[1] if ":" in t else ""    
+        task_enum_from_model(suffix)
     elif t == "custom":                   task_custom()
     else:
         print(f"Unknown TASK={TASK!r}. See the docstring at the top of main.py.")

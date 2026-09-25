@@ -26,7 +26,7 @@ from rgr.sdd_utils import term_to_sdd, is_implicant
 OUT = os.path.join(os.path.dirname(__file__), "outputs")
 os.makedirs(OUT, exist_ok=True)
 clock = time.perf_counter
-REPS = 10  # average each timed method over this many runs
+REPS = 3  # average each timed method over this many runs
 
 def avg_time(fn, reps=REPS):
     t0 = clock()

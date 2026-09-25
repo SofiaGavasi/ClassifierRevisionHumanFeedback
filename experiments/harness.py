@@ -57,8 +57,9 @@ def run_experiment(suite_name, measure, per="classifier", out="experiment", vtre
             mgr, sdd = build_classifier(entry, vtree_type=vt)
             base = {"id": entry["id"], "vtree": vt, **{k: entry[k] for k in group_keys if k in entry}} # base row for this classifier (and vtree)
             if per == "classifier":
-                m = measure(mgr, sdd, entry) # measure once per classifier
-                rows.append({**base, **m})
+                m = measure(mgr, sdd, entry)
+                if m is not None:
+                    rows.append({**base, **m})
             elif per == "instance":
                 for omega in _rejected_instances(sdd, mgr, nvars): # measure once per rejected instance
                     m = measure(mgr, sdd, entry, omega)

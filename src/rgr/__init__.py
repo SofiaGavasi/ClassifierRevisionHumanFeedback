@@ -23,6 +23,7 @@ from .reconstruct import nearest_model
 from .shrink import greedy_shrink, disagreement
 from .alternatives import alternatives
 from .sdd_utils import build, term_to_sdd, is_implicant
+from .enumerate import enumerate_reasons, count_at, node_dist
 
 __all__ = [
     "edit", "node_dist", "INF", "nearest_model", "greedy_shrink",

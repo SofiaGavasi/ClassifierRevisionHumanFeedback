@@ -18,6 +18,11 @@ The `tests/` folder holds the regression suite: it re-checks every part of the e
 
 The `experiments/` folder holds standalone scripts that *produce results and files*, as opposed to the engine (`rgr/`), which holds the reusable logic, and the tests (`tests/`), which only check correctness. Each experiment lives in its own subfolder. A seperate README file is in the experiments module to describe the various subfolders
 
+The experiment mentioned in the paper is in enum_from_model/experiment.py
+And the file used to generate the dataset is in suites/generate_suite.py
+
+To rerun the experiment, first generate the suite, then run the experiment.py file mentioned above. use enum_from_model/plot.py to generate plots
+
 
 ## src/rgr
 

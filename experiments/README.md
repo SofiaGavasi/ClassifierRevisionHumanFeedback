@@ -70,3 +70,9 @@ run_experiment("standard", measure, per="classifier", out="my_experiment", group
 - `run_menu_extension.py`: Menu-extension experiment: three tiers of tie-reason recovery, plus the cost of the extension measured at two levels.
 - `run_three_way.py`: Three-way comparison on the same task: recover the tied minimal reasons for a rejected instance. (original bounded menu, extended menu, PI enumeration)
 - `three_way_charts.py`: Charts for visualization of three way results
+
+
+
+## MODULE: enum_form_model
+
+This contains the experiments included in the paper, to run the enumeration of minimal disagreement reasons  on the 3_CNF dataset and compare it agains naive enumeration of prime implicants

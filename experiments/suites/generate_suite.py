@@ -17,7 +17,7 @@ os.makedirs(OUT, exist_ok=True)
 
 # suite definition 
 SUITE_NAME  = "standard"
-NVARS_RANGE = [3, 4, 5, 6, 7, 8, 9, 10]
+NVARS_RANGE = [6, 7]
 DENSITIES   = [2.0, 3.0, 3.8, 4.0, 4.2, 4.26, 4.4, 4.6, 5.0, 6.0] 
 PER_CELL    = 25
 SEED        = 100
