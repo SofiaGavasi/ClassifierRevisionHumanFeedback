@@ -39,4 +39,21 @@
 - `count` counts the minimum-distance models of an SDD to a target instance, without enumerating them. Used by the extended menu experiments.
 
 
+### Ordered PI enumeration from a nearest model (pipeline)
+
+
+- `reasons_from_model` is the top-level entry point. Given the classifier SDD, a nearest model μ, and ω, it yields the PIs of Δ contained in μ, one at a time, as dicts `{var: bool}`. Runs the full pipeline: fix the flipped literals F_μ, condition on them to get the residual D_μ, restrict to D_μ's semantic support, detect the mandatory core C_μ, and then CEGAR-enumerate the optional part U_μ.
+
+The `enumeration/` subpackage holds the machinery:
+
+- `enumeration/conditioning` builds D_μ = Δ | F_μ, the residual after fixing the mandatory flipped literals. Every PI contained in μ has the form F_μ ∪ (optional part), so enumeration is done on D_μ instead of Δ.
+
+- `enumeration/mandatory_core` detects the core C_μ ⊆ O_μ: literals in the optional set that appear in **every** PI contained in μ. For each candidate ℓ, checks whether removing it from the full optional set still entails D_μ; if not, ℓ is core. Semantically equivalent to per-variable dependency: the pipeline uses the same idea to check which vars D_μ actually depends on (avoiding structural undercounts after PySDD's `condition`).
+
+- `enumeration/hitting_sets` is a lazy best-first minimal-hitting-set enumerator over an incrementally growing family of conflict sets. Maintains a size-ordered heap of candidate hitting sets, a list of blocked PIs (whose supersets are non-prime), and a `branch(cand, conflict)` hook that CEGAR uses to re-branch a failed candidate on a newly-added conflict. Has iteration and queue caps that raise `MHSSearchLimitExceeded` if the search blows up.
+
+- `enumeration/cegar` is the CEGAR loop itself. Repeatedly asks the MHS enumerator for the next minimal hitting set A, tests whether A ∪ C_μ entails D_μ, and either yields F_μ ∪ C_μ ∪ A as a PI or extracts a countermodel-derived conflict, adds it, and branches. Also exports `blind_enumerate` (subset enumeration by increasing size with superset blocking) as the no-CEGAR ablation.
+
+- `enumeration/cache` memoises residual → PI-set results across nearest models within a single call, so repeated μ's with identical residuals reuse work.
+
 

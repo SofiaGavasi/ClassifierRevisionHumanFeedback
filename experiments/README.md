@@ -6,6 +6,7 @@
 - `pi_recovery/` - fraction of minimal reasons recovered by the menu vs enumeration.
 - `scaling/` - pipeline vs enumeration timing, and SDD size across vtrees.
 - `menu_extension/` - compares tiers of tie-reason recovery and measures the cost of extending the menu.
+- `enum_from_model/` - the paper's headline experiment: ordered, polynomial-delay enumeration of minimal sufficient reasons vs naive PI enumeration, with per-stage ablations.
 
 
 
@@ -73,6 +74,28 @@ run_experiment("standard", measure, per="classifier", out="my_experiment", group
 
 
 
-## MODULE: enum_form_model
+## MODULE: enum_from_model
 
-This contains the experiments included in the paper, to run the enumeration of minimal disagreement reasons  on the 3_CNF dataset and compare it agains naive enumeration of prime implicants
+The experiments included in the paper: ordered, polynomial-delay enumeration of minimal sufficient reasons on the shared 3-CNF suite, compared against naive prime-implicant enumeration and against a family of ablations that turn each stage of the CEGAR pipeline off in isolation.
+
+For every rejected instance ω the harness runs `reasons_from_model` over every nearest model μ of ω, streaming the PIs of Δ contained in μ. Under each vtree it records wall-clock timing (first-PI latency, per-PI delay, total time), correctness against the brute-force ground truth (all PIs at minimum disagreement, from `rgr.reasons.all_prime_implicants`), and per-stage counters (entailment checks, countermodel calls, conflicts added, PIs found, truncation flag).
+
+### Ablations
+Each row is measured under six configurations:
+- `full` — the complete CEGAR pipeline (conditioning, support reduction, mandatory-core detection, CEGAR enumeration, residual cache).
+- `no_conditioning` — skip the residual (entailment checks go against Δ | F_μ built on the fly).
+- `no_support` — keep the conditioned residual but don't drop optional literals on variables outside its semantic support.
+- `no_core` — skip mandatory-core detection; CEGAR enumerates over the full optional set O_μ.
+- `no_cegar` — replace the CEGAR loop with `blind_enumerate` (size-increasing subset enumeration with superset blocking).
+- `baseline` — brute-force PI enumeration (`rgr.reasons.all_prime_implicants`) filtered by minimum disagreement. The reference for both speedup and correctness.
+
+### Files
+- `experiment.py` — harness entry point (`per="instance"`). Runs all ablations on the shared suite, respects a per-ablation-per-row time budget, and writes the CSV + summary. Flags: `--budget-s` (per-ablation time budget, default 30s) and `--skip-baseline-above-n` (skip the 3ⁿ baseline above this many variables, default 7).
+- `plot.py` — generates the eight paper figures from the CSV: first-PI latency vs n, per-PI delay vs n, total time vs baseline (speedup), streaming curves, per-stage counter breakdowns, ablation comparison bars, correctness confirmation, and truncation rates.
+
+### Run
+```
+python experiments/enum_from_model/experiment.py
+python experiments/enum_from_model/plot.py
+```
+Outputs land in `outputs/enum_from_model/` (CSV, summary, figures).
