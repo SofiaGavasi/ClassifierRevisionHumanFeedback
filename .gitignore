@@ -11,3 +11,40 @@ experiments/**/outputs/
 experiments/**/outputs_old/
 *.png
 !docs/**/*.png
+
+
+#  frontend (web/app)
+node_modules/
+web/app/node_modules/
+web/app/dist/
+web/app/.vite/
+web/app/*.local
+web/app/.env.local
+web/app/.env.*.local
+
+#  backend (web/server) 
+web/server/*.egg-info/
+web/server/build/
+web/server/dist/
+
+#  python (general) 
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+#  editors / OS 
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+#  logs / temp 
+*.log
+npm-debug.log*

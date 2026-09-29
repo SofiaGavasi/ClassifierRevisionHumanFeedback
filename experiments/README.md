@@ -82,7 +82,7 @@ For every rejected instance ω the harness runs `reasons_from_model` over every 
 
 ### Ablations
 Each row is measured under six configurations:
-- `full` — the complete CEGAR pipeline (conditioning, support reduction, mandatory-core detection, CEGAR enumeration, residual cache).
+- `full` — the complete pipeline (conditioning, support reduction, mandatory-core detection, CEGAR enumeration, residual cache).
 - `no_conditioning` — skip the residual (entailment checks go against Δ | F_μ built on the fly).
 - `no_support` — keep the conditioned residual but don't drop optional literals on variables outside its semantic support.
 - `no_core` — skip mandatory-core detection; CEGAR enumerates over the full optional set O_μ.

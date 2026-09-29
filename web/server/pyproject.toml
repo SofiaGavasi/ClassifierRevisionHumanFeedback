@@ -1,0 +1,14 @@
+[project]
+name = "rgr-web"
+version = "0.1.0"
+description = "Web UI for the reason-guided revision pipeline."
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "pydantic>=2",
+    "sympy>=1.12",
+]
+
+[tool.uvicorn]
+# run with: uvicorn rgr_web.app:app --reload --port 8000
