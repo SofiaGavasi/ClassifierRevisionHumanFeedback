@@ -86,3 +86,13 @@ print(explain_edit(sdd, omega, mgr, ex["nvars"], result))
 
 
 
+
+
+## Independent batch implementation
+
+The exact batch backend is independently packaged under [batch/](batch/README.md). It includes positive-only ORD, unrestricted-loss negative revision, symbolic verification, an independent exhaustive oracle, and separate tests and data. BERD handles mixed and constrained revision, and separate configuration-driven experiments, summaries and plots are implemented. Existing unary code and installation remain unchanged.
+
+```powershell
+python -m pip install -e ".\batch[test]"
+python -m pytest -c batch/pyproject.toml batch/tests -q
+```

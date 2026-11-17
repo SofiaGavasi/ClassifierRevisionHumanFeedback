@@ -1,17 +1,20 @@
 import { Tex, TexInline } from '../lib/latex';
 import { TraceStep } from '../lib/api';
 import { MuBlock } from './MuBlock';
+import { MiniRevisionMaps } from './MiniRevisionMaps';
+import { MapVisualization } from '../lib/mapGeometry';
 
-export function StepView({ step, onPickReason, dOriginalDot }: {
+export function StepView({ step, onPickReason, dOriginalDot, originalVisual, omega }: {
   step: TraceStep;
   onPickReason?: (assignment: Record<string, boolean>) => void;
   dOriginalDot?: string;
+  originalVisual?: MapVisualization; omega?: string;
 }) {
   return (
     <div className="step">
       <h3>{prettyName(step.name)}</h3>
       <p className="muted"><TexInline text={step.description} /></p>
-      <StepBody step={step} onPickReason={onPickReason} dOriginalDot={dOriginalDot} />
+      <StepBody step={step} onPickReason={onPickReason} dOriginalDot={dOriginalDot} originalVisual={originalVisual} omega={omega} />
     </div>
   );
 }
@@ -27,10 +30,11 @@ function prettyName(n: string): string {
   } as Record<string, string>)[n] ?? n;
 }
 
-function StepBody({ step, onPickReason, dOriginalDot }: {
+function StepBody({ step, onPickReason, dOriginalDot, originalVisual, omega }: {
   step: TraceStep;
   onPickReason?: (assignment: Record<string, boolean>) => void;
   dOriginalDot?: string;
+  originalVisual?: MapVisualization; omega?: string;
 }) {
   const d = step.data;
   switch (step.name) {
@@ -73,11 +77,14 @@ function StepBody({ step, onPickReason, dOriginalDot }: {
         <>
           {d.reasons.length === 0 && <p className="err">No reasons produced.</p>}
           {d.reasons.map((r: any) => (
-            <div key={r.index} className="reason-card">
+            <div key={r.index} className="reason-card has-map">
+              <div className="section-intro">
               <div><Tex src={r.latex} /></div>
               {onPickReason && (
                 <button className="small" onClick={() => onPickReason(r.assignment)}>choose this reason</button>
               )}
+              </div>
+              <MiniRevisionMaps original={originalVisual} revised={r.visualization} omega={omega} label={`Unary reason ${r.index + 1}`} />
             </div>
           ))}
         </>

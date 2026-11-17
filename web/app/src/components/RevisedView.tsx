@@ -1,13 +1,20 @@
-// Revised-classifier panel: shows the weakened reason, CNF/DNF/truth-table side-by-side with the original, and highlights the newly-accepted rows / minterms.
+// Revised-classifier panel: header stats, four tabs (truth table / DNF / CNF / K-map), and the revised SDD.
 import { useState } from 'react';
 import { Tex } from '../lib/latex';
 import { SDDView } from './SDDView';
+import { EditableKmap } from './EditableKmap';
+import { bitsKey } from '../lib/feedback';
 
 type Row = { values: boolean[]; old: boolean; new: boolean; changed: boolean };
 
-export function RevisedView({ applied }: { applied: any }) {
-  const [tab, setTab] = useState<'cnf' | 'dnf' | 'truth'>('truth');
+export function RevisedView({ applied, omega }: {
+  applied: any;
+  omega: Record<string, boolean>;
+}) {
+  const [tab, setTab] = useState<'kmap' | 'cnf' | 'dnf' | 'truth'>('kmap');
   const tt = applied.truth_table;
+  const nvars = tt?.nvars ?? (tt?.headers?.length ?? 0);
+  const canKmap = !tt?.too_large && nvars >= 1 && nvars <= 6;
 
   return (
     <>
@@ -32,12 +39,20 @@ export function RevisedView({ applied }: { applied: any }) {
 
       <div className="panel">
         <div className="tabs">
+          {canKmap && (
+            <button className={'tab ' + (tab === 'kmap' ? 'active' : '')} onClick={() => setTab('kmap')}>Karnaugh map</button>
+          )}
           <button className={'tab ' + (tab === 'truth' ? 'active' : '')} onClick={() => setTab('truth')}>Truth table</button>
           <button className={'tab ' + (tab === 'dnf' ? 'active' : '')} onClick={() => setTab('dnf')}>DNF</button>
           <button className={'tab ' + (tab === 'cnf' ? 'active' : '')} onClick={() => setTab('cnf')}>CNF</button>
         </div>
 
-        {tab === 'truth' && <TruthTable tt={tt} />}
+        {tab === 'kmap' && canKmap && (
+          <EditableKmap vars={tt.headers} accepted={tt.rows.map((row: Row) => row.old)} revised={tt.rows.map((row: Row) => row.new)}
+            reasons={applied.visualization?.reasons} omega={bitsKey(tt.headers.map((name: string) => !!omega[name]))} label="Revised unary classifier map" />
+        )}
+
+        {(tab === 'truth' || tab === 'kmap' && !canKmap) && <TruthTable tt={tt} />}
 
         {tab === 'dnf' && (
           <div>
@@ -55,7 +70,7 @@ export function RevisedView({ applied }: { applied: any }) {
             <h4 style={{ margin: '14px 0 4px', color: 'var(--muted)' }}>revised <Tex src="\Delta'" /> (simplified CNF)</h4>
             <div className="dnf-line"><Tex src={applied.new_cnf_latex} /></div>
             <p className="muted" style={{ marginTop: 8 }}>
-              Revised CNF is derived from the truth table via a Boolean-simplification pass, so its clause layout may differ from a naive expansion of <Tex src="\Delta \vee W" />.
+              Revised CNF is derived from the truth table via Boolean simplification, so its clause layout may differ from a naive expansion of <Tex src="\Delta \vee W" />.
             </p>
           </div>
         )}
@@ -90,12 +105,12 @@ function TruthTable({ tt }: { tt: any }) {
             const removed = r.old && !r.new;
             const bg = added ? 'rgba(46,160,67,0.15)' : removed ? 'rgba(176,54,31,0.15)' : undefined;
             return (
-              <tr key={i} style={{ background: bg, borderTop: '1px solid var(--border)' }}>
+              <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
                 {r.values.map((v, j) => (
-                    <td key={j} className="mono" style={{ padding: '2px 8px', textAlign: 'center', background: bg }}>{v ? '1' : '0'}</td>
+                  <td key={j} className="mono" style={{ padding: '2px 8px', textAlign: 'center', background: bg }}>{v ? '1' : '0'}</td>
                 ))}
-                <td className="mono" style={{ padding: '2px 8px', textAlign: 'center' }}>{r.old ? '1' : '0'}</td>
-                <td className="mono" style={{ padding: '2px 8px', textAlign: 'center', fontWeight: added ? 700 : 400 }}>
+                <td className="mono" style={{ padding: '2px 8px', textAlign: 'center', background: bg }}>{r.old ? '1' : '0'}</td>
+                <td className="mono" style={{ padding: '2px 8px', textAlign: 'center', background: bg, fontWeight: added ? 700 : 400 }}>
                   {r.new ? '1' : '0'}{added ? ' ↑' : ''}
                 </td>
               </tr>
@@ -103,9 +118,6 @@ function TruthTable({ tt }: { tt: any }) {
           })}
         </tbody>
       </table>
-      <p className="muted" style={{ marginTop: 8 }}>
-        Green rows are newly accepted by the revision. Original ω is at row {rows.findIndex(r => r.old === false && r.new === true && r.changed) + 1 || '—'} (if listed).
-      </p>
     </div>
   );
 }

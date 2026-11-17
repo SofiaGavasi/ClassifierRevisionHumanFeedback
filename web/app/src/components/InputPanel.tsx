@@ -1,169 +1,77 @@
-// Input panel: two side-by-side boxes.  LEFT is manual input (formula / CNF /
-// truth table / random), RIGHT is the examples picker.  On narrow viewports
-// they stack.
-import { useEffect, useMemo, useState } from 'react';
+// One classifier scratchpad shared by all input tabs, with explicit loading and complete reset.
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, Classifier, Example } from '../lib/api';
+import { classifierViews, emptyInput, tableClassifier } from '../lib/inputViews';
+import { ClassifierMap } from './ClassifierMap';
 
-type Mode = 'formula' | 'cnf' | 'truth' | 'random';
+type Mode = 'kmap' | 'formula' | 'cnf' | 'truth' | 'random';
 
-const PLACEHOLDERS: Record<'formula' | 'cnf', string> = {
-  formula: '(a & b) | (c & ~d)',
-  cnf: '# one clause per line, ~ or - for negation\na b\n~a c\nb ~c\n',
-};
-
-const FORMULA_HELP = (
-  <>
-    <p style={{ margin: '4px 0' }}>
-      Write any propositional formula. All of these are accepted and can be mixed:
-    </p>
-    <ul style={{ margin: '4px 0 6px 18px', padding: 0 }}>
-      <li><code>&</code> , <code>and</code> , <code>∧</code>     (conjunction)</li>
-      <li><code>|</code> , <code>or</code> , <code>∨</code>     (disjunction)</li>
-      <li><code>~</code> , <code>-</code> , <code>!</code> , <code>not</code> , <code>¬</code>     (negation)</li>
-      <li><code>&gt;&gt;</code> , <code>→</code>     (implication);     <code>&lt;&gt;</code> , <code>↔</code>     (bi-implication)</li>
-    </ul>
-    <p style={{ margin: '4px 0' }}>
-      Spacing is free: <code>(b∨¬a)∧(d∨¬a)</code> and <code>( b or not a ) and ( d or -a )</code> both work.
-      CNF is derived automatically.
-    </p>
-  </>
-);
-
-const DEFAULT_TRUTH_VARS = ['a', 'b'];
-
-export function InputPanel({
-  onClassifier,
-  onExamplePicked,
-}: {
-  onClassifier: (c: Classifier) => void;
-  onExamplePicked: (ex: Example) => void;
+export function InputPanel({ onClassifier, onExamplePicked, onClear, framework = 'unary' }: {
+  onClassifier: (value: Classifier) => void; onExamplePicked: (value: Example) => void; onClear: () => void; framework?: 'unary' | 'batch';
 }) {
-  const [mode, setMode] = useState<Mode>('formula');
-  const [text, setText] = useState<string>(PLACEHOLDERS.formula);
-  const [examples, setExamples] = useState<Example[]>([]);
-  const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const [tVars, setTVars] = useState<string[]>(DEFAULT_TRUTH_VARS);
-  const [tLabels, setTLabels] = useState<boolean[]>(() => new Array(1 << DEFAULT_TRUTH_VARS.length).fill(false));
-
-  const [rNvars, setRNvars] = useState(5);
-  const [rDensity, setRDensity] = useState(4.26);
-  const [rSeed, setRSeed] = useState<number | ''>('');
-
+  const [mode, setMode] = useState<Mode>('kmap');
+  const [draft, setDraft] = useState<Classifier>(emptyInput);
+  const [formula, setFormula] = useState(''), [cnf, setCnf] = useState('');
+  const [examples, setExamples] = useState<Example[]>([]), [err, setErr] = useState<string | null>(null), [busy, setBusy] = useState(false);
+  const [rNvars, setRNvars] = useState(5), [rDensity, setRDensity] = useState(4.26), [rSeed, setRSeed] = useState<number | ''>('');
+  const [resetKey, setResetKey] = useState(0), [loaded, setLoaded] = useState(false);
+  const version = useRef(0), latest = useRef(draft); latest.current = draft;
+  const views = useMemo(() => classifierViews(draft), [draft]);
   useEffect(() => {
-    api.examples().then(setExamples).catch(() => {});
-  }, []);
-
-  const changeMode = (m: Mode) => {
-    setMode(m);
-    if (m === 'formula' || m === 'cnf') setText(PLACEHOLDERS[m]);
-    setErr(null);
+    let active = true;
+    api.examples(framework).then(value => { if (active) setExamples(value); }).catch(e => { if (active) setErr(e.message); });
+    return () => { active = false; version.current++; };
+  }, [framework]);
+  const synchronize = (value: Classifier) => {
+    latest.current = value; setDraft(value); const next = classifierViews(value); setFormula(next.formula); setCnf(next.cnf); setErr(null);
   };
-
+  const currentValue = async () => {
+    const current = latest.current, text = classifierViews(current);
+    if ((mode === 'formula' && !formula.trim() && formula !== text.formula) || (mode === 'cnf' && !cnf.trim() && cnf !== text.cnf)) throw new Error('Enter a classifier, or use Erase input to clear the workspace.');
+    if (mode === 'formula' && formula !== text.formula && formula.trim()) return api.parse('formula', formula);
+    if (mode === 'cnf' && cnf !== text.cnf && cnf.trim()) return api.parse('cnf', cnf);
+    return current;
+  };
+  const changeMode = async (next: Mode) => {
+    if (next === mode || busy) return;
+    const token = ++version.current; setBusy(true); setErr(null);
+    try { const value = await currentValue(); if (token === version.current) { synchronize(value); setMode(next); } }
+    catch (e) { if (token === version.current) setErr(formatError((e as Error).message, mode)); }
+    finally { if (token === version.current) setBusy(false); }
+  };
   const submit = async () => {
-    setErr(null); setBusy(true);
+    const token = ++version.current; setBusy(true); setErr(null);
     try {
-      let c: Classifier;
-      if (mode === 'random') {
-        c = await api.random(rNvars, rDensity, rSeed === '' ? undefined : Number(rSeed));
-      } else if (mode === 'truth') {
-        c = await api.parse('truth', serializeTruthGrid(tVars, tLabels));
-      } else {
-        c = await api.parse(mode, text);
-      }
-      onClassifier(c);
-    } catch (e: any) {
-      setErr(formatError(e?.message ?? String(e), mode));
-    } finally {
-      setBusy(false);
-    }
+      const value = mode === 'random' ? await api.random(rNvars, rDensity, rSeed === '' ? undefined : Number(rSeed)) : await currentValue();
+      if (framework === 'batch' && value.nvars > 8) throw new Error('The interactive batch interface supports up to 8 variables.');
+      if (token !== version.current) return;
+      synchronize(value); setLoaded(true); onClassifier(value);
+    } catch (e) { if (token === version.current) setErr(formatError((e as Error).message, mode)); }
+    finally { if (token === version.current) setBusy(false); }
   };
-
-  const pickExample = (id: string) => {
-    const ex = examples.find(x => x.id === id);
-    if (!ex) return;
-    setMode(ex.mode as Mode);
-    if (ex.mode === 'truth') {
-      const { vars, labels } = parseTruthText(ex.text);
-      if (vars) { setTVars(vars); setTLabels(labels); }
-    } else {
-      setText(ex.text);
-    }
-    onExamplePicked(ex);
-    setErr(null);
+  const pickExample = (value: Example) => {
+    version.current++; setBusy(false); synchronize(value); setLoaded(true); setResetKey(i => i + 1); onExamplePicked(value);
   };
-
-
-  return (
-    <div className="row" style={{ alignItems: 'stretch', gap: 12 }}>
-      {/* LEFT: manual input */}
-      <div className="panel" style={{ flex: '2 1 460px', minWidth: 320 }}>
-        <div className="muted" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-          Type your own
-        </div>
-
-        <div className="tabs">
-          {(['formula', 'cnf', 'truth', 'random'] as Mode[]).map(m => (
-            <button
-              key={m}
-              className={'tab ' + (mode === m ? 'active' : '')}
-              onClick={() => changeMode(m)}
-            >
-              {m === 'formula' ? 'formula' : m === 'cnf' ? 'CNF' : m === 'truth' ? 'truth table' : 'random'}
-            </button>
-          ))}
-        </div>
-
-        {(mode === 'formula' || mode === 'cnf') && (
-          <>
-            <textarea value={text} onChange={e => setText(e.target.value)} />
-            <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>
-              {mode === 'formula' && FORMULA_HELP}
-              {mode === 'cnf' && 'One clause per line; ~ or - for negation; # for comments.'}
-            </div>
-          </>
-        )}
-
-        {mode === 'truth' && (
-          <TruthGrid vars={tVars} labels={tLabels} onVarsChange={setTVars} onLabelsChange={setTLabels} />
-        )}
-
-        {mode === 'random' && (
-          <div className="row">
-            <label>n vars <input type="number" min={2} max={8} value={rNvars} onChange={e => setRNvars(Number(e.target.value))} style={{ width: 70 }} /></label>
-            <label>density <input type="number" step={0.1} value={rDensity} onChange={e => setRDensity(Number(e.target.value))} style={{ width: 70 }} /></label>
-            <label>seed <input type="number" value={rSeed} onChange={e => setRSeed(e.target.value === '' ? '' : Number(e.target.value))} style={{ width: 90 }} placeholder="none" /></label>
-          </div>
-        )}
-
-        <div className="row" style={{ marginTop: 10 }}>
-          <button onClick={submit} disabled={busy}>{busy ? '...' : 'Load classifier'}</button>
-        </div>
-        {err && <ErrorBox message={err} />}
-      </div>
-
-      {/* RIGHT: examples */}
-      <div className="panel" style={{ flex: '1 1 260px', minWidth: 240 }}>
-        <div className="muted" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-          Or pick an example
-        </div>
-        {examples.length === 0 && <p className="muted">No examples available.</p>}
-        <div style={{ maxHeight: 340, overflowY: 'auto' }}>
-          {examples.map(ex => (
-            <button
-              key={ex.id}
-              className="ghost small"
-              style={{ display: 'block', width: '100%', textAlign: 'left', marginBottom: 4, padding: '4px 8px' }}
-              onClick={() => pickExample(ex.id)}
-            >
-              {ex.label}
-            </button>
-          ))}
-        </div>
-      </div>
+  const reset = () => {
+    version.current++; setBusy(false); synchronize(emptyInput()); setFormula(''); setCnf(''); setMode('kmap'); setLoaded(false); setRNvars(5); setRDensity(4.26); setRSeed(''); setResetKey(i => i + 1); onClear();
+  };
+  return <div className="row classifier-input-row" style={{ alignItems: 'stretch', gap: 12 }}>
+    <div className="panel" style={{ flex: '2 1 460px', minWidth: 320 }}>
+      <div className="section-intro"><button type="button" className="ghost reset-input" onClick={reset}>⌫ Erase input</button></div>
+      <div className="tabs">{(['kmap', 'formula', 'cnf', 'truth', 'random'] as Mode[]).map(tab => <button type="button" key={tab} disabled={busy} className={`tab ${mode === tab ? 'active' : ''}`} onClick={() => void changeMode(tab)}>{({ kmap: 'Karnaugh map', formula: 'Formula', cnf: 'CNF', truth: 'Truth table', random: 'Random' })[tab]}</button>)}</div>
+      {mode === 'kmap' && <ClassifierMap key={resetKey} value={draft} onChange={synchronize} />}
+      {(mode === 'formula' || mode === 'cnf') && <><textarea aria-label={mode === 'formula' ? 'Classifier formula' : 'Classifier CNF'} value={mode === 'formula' ? formula : cnf} onChange={e => mode === 'formula' ? setFormula(e.target.value) : setCnf(e.target.value)} placeholder={mode === 'formula' ? '(a & b) | (c & ~d)' : 'a b\n~a c'} />
+        <p className="muted">{mode === 'formula' ? 'Use &, |, ~, and/or/not, ∧, ∨, ¬, →, or ↔. Parentheses group expressions.' : 'One clause per line. Use ~ or - for negation and # for comments.'}</p>
+        {!!draft.var_names.length && <p className="muted">Declared variables: {draft.var_names.join(', ')}. Unedited representations retain this universe, including unused features.</p>}</>}
+      {mode === 'truth' && (draft.nvars <= 6 ? <TruthGrid vars={draft.var_names} labels={views.accepted} onChange={(vars, labels) => { try { synchronize(tableClassifier(vars, labels)); } catch (e) { setErr((e as Error).message); } }} /> : <p className="muted">The current classifier still has {draft.nvars} variables. The editable truth-table view supports up to 6; use its formula or CNF.</p>)}
+      {mode === 'random' && <><p className="muted">The current input is retained. Generate a new seeded classifier to replace it.</p><div className="row"><label>Variables<input type="number" min={2} max={8} value={rNvars} onChange={e => setRNvars(Number(e.target.value))} /></label><label>Clause density<input type="number" step={.1} value={rDensity} onChange={e => setRDensity(Number(e.target.value))} /></label><label>Seed<input type="number" value={rSeed} placeholder="Random" onChange={e => setRSeed(e.target.value === '' ? '' : Number(e.target.value))} /></label></div><p className="muted">Current input: {draft.nvars} variables ({draft.var_names.join(', ')}).</p></>}
+      <div className="row input-commit"><button type="button" className="primary-action" onClick={submit} disabled={busy}>{busy ? 'Loading...' : mode === 'random' ? 'Generate and load classifier' : 'Load classifier'}</button><span className="muted"></span></div>
+      {err && <ErrorBox message={err} />}
     </div>
-  );
+    <div className="panel example-panel" style={{ flex: '1 1 260px', minWidth: 240 }}><strong>Try an example</strong><p className="muted">Loads the classifier{framework === 'batch' ? ', feedback and bounds' : ' and suggested instance'}.</p>
+      <div className="example-list">{examples.map(example => <button type="button" className="ghost example-button" key={example.id} onClick={() => pickExample(example)}><strong>{example.label}</strong>{example.description && <small className="example-description">{example.description}</small>}</button>)}</div>
+    </div>
+  </div>;
 }
 
 // ------------------------------------------------------------------ error UI
@@ -201,10 +109,10 @@ function formatError(raw: string, mode: Mode): string {
 const MAX_TRUTH_VARS = 6;
 
 function TruthGrid({
-  vars, labels, onVarsChange, onLabelsChange,
+  vars, labels, onChange,
 }: {
   vars: string[]; labels: boolean[];
-  onVarsChange: (v: string[]) => void; onLabelsChange: (l: boolean[]) => void;
+  onChange: (vars: string[], labels: boolean[]) => void;
 }) {
   const n = vars.length;
   const nRows = 1 << n;
@@ -224,8 +132,7 @@ function TruthGrid({
     const suggested = nextName(vars);
     const newLabels: boolean[] = [];
     for (let i = 0; i < labels.length; i++) { newLabels.push(labels[i]); newLabels.push(labels[i]); }
-    onVarsChange([...vars, suggested]);
-    onLabelsChange(newLabels);
+    onChange([...vars, suggested], newLabels);
   };
 
   const removeVar = (idx: number) => {
@@ -233,19 +140,18 @@ function TruthGrid({
     const bit = n - 1 - idx;
     const newLabels: boolean[] = [];
     for (let i = 0; i < labels.length; i++) if (((i >> bit) & 1) === 0) newLabels.push(labels[i]);
-    onVarsChange(vars.filter((_, i) => i !== idx));
-    onLabelsChange(newLabels);
+    onChange(vars.filter((_, i) => i !== idx), newLabels);
   };
 
   const renameVar = (idx: number, name: string) => {
     if (!name) return;
     const cleaned = name.replace(/[^A-Za-z0-9_]/g, '');
     if (!cleaned || vars.includes(cleaned)) return;
-    const next = [...vars]; next[idx] = cleaned; onVarsChange(next);
+    const next = [...vars]; next[idx] = cleaned; onChange(next, labels);
   };
 
-  const toggleLabel = (i: number) => { const next = [...labels]; next[i] = !next[i]; onLabelsChange(next); };
-  const setAll = (v: boolean) => onLabelsChange(new Array(nRows).fill(v));
+  const toggleLabel = (i: number) => { const next = [...labels]; next[i] = !next[i]; onChange(vars, next); };
+  const setAll = (v: boolean) => onChange(vars, new Array(nRows).fill(v));
 
   return (
     <div>
@@ -292,35 +198,6 @@ function TruthGrid({
       </div>
     </div>
   );
-}
-
-function serializeTruthGrid(vars: string[], labels: boolean[]): string {
-  const n = vars.length; const nRows = 1 << n;
-  const lines = [[...vars, 'label'].join(' ')];
-  for (let i = 0; i < nRows; i++) {
-    const bits: string[] = [];
-    for (let j = 0; j < n; j++) bits.push(((i >> (n - 1 - j)) & 1).toString());
-    lines.push([...bits, labels[i] ? '1' : '0'].join(' '));
-  }
-  return lines.join('\n') + '\n';
-}
-
-function parseTruthText(text: string): { vars: string[] | null; labels: boolean[] } {
-  try {
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-    if (lines.length < 2) return { vars: null, labels: [] };
-    const header = lines[0].split(/[\s,|:]+/).filter(Boolean);
-    const vars = header.slice(0, -1); const n = vars.length;
-    const labels = new Array(1 << n).fill(false);
-    for (const row of lines.slice(1)) {
-      const toks = row.split(/[\s,|:]+/).filter(Boolean);
-      if (toks.length !== n + 1) continue;
-      let idx = 0;
-      for (let j = 0; j < n; j++) idx = (idx << 1) | (toks[j] === '1' ? 1 : 0);
-      labels[idx] = toks[n] === '1';
-    }
-    return { vars, labels };
-  } catch { return { vars: null, labels: [] }; }
 }
 
 function nextName(existing: string[]): string {

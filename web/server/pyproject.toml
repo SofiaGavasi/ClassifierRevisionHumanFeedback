@@ -1,14 +1,29 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "rgr-web"
 version = "0.1.0"
-description = "Web UI for the reason-guided revision pipeline."
+description = "Local web workbench for unary and exact batch Boolean classifier revision."
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
     "pydantic>=2",
     "sympy>=1.12",
+    "psutil>=5.9",
 ]
+
+[project.optional-dependencies]
+test = ["pytest>=7", "httpx>=0.27"]
+
+[tool.setuptools.packages.find]
+include = ["rgr_web*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "../../src", "../../batch/src"]
 
 [tool.uvicorn]
 # run with: uvicorn rgr_web.app:app --reload --port 8000

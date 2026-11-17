@@ -10,10 +10,12 @@ from pydantic import BaseModel
 
 from .parse import parse_any
 from .trace import build_trace, apply_revision
+from .batch_routes import router as batch_router
 
 from itertools import product
 
 app = FastAPI(title="RGR web")
+app.include_router(batch_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -77,7 +79,9 @@ def examples_endpoint():
 def revise_cegmhs(req: ReviseReq):
     omega = _omega_from_names(req.omega, req.var_names)
     try:
-        return build_trace(req.nvars, req.var_names, req.clauses, omega, algorithm="cegmhs")
+        from .visualization import unary_choices
+        trace = build_trace(req.nvars, req.var_names, req.clauses, omega, algorithm="cegmhs")
+        return unary_choices(trace, req.model_dump())
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"pipeline error: {e}")
 
@@ -87,7 +91,12 @@ def apply_endpoint(req: ApplyReq):
     omega = _omega_from_names(req.omega, req.var_names)
     reason = _omega_from_names(req.reason, req.var_names)
     try:
-        return apply_revision(req.nvars, req.var_names, req.clauses, omega, reason)
+        from .visualization import visualize_values
+        result = apply_revision(req.nvars, req.var_names, req.clauses, omega, reason)
+        table = result.get("truth_table", {})
+        if not table.get("too_large"):
+            result["visualization"] = visualize_values(req.var_names, [row["new"] for row in table["rows"]])
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"apply error: {e}")
 
