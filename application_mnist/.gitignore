@@ -1,0 +1,8 @@
+# The original MNIST archive should be cached locally, not committed.
+data/raw/
+data/processed/
+eda/reports/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+eda/application_mnist
