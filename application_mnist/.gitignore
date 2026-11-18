@@ -6,3 +6,4 @@ __pycache__/
 .pytest_cache/
 *.py[cod]
 eda/application_mnist
+decision_tree/outputs/
